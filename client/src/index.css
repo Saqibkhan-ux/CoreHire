@@ -1,0 +1,18 @@
+:root {
+    --bg-main: #09090b;
+    --bg-surface: #18181b;
+    --border-subtle: #27272a;
+    --text-primary: #fafafa;
+    --text-muted: #a1a1aa;
+    --accent-cyan: #06b6d4;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.mono-spec {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
