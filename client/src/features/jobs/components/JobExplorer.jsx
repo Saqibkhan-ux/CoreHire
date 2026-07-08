@@ -1,66 +1,117 @@
-import React, { useState } from 'react';
-import { useTenant } from '../../../context/TenantContext';
+import { useState } from 'react';
 
 export default function JobExplorer() {
-  const { tenant } = useTenant();
+  // We will connect this to your Node.js backend shortly!
+  const [jobs, setJobs] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Local sandbox data model to trace your UI card layouts before API hooks go live
-  const mockJobs = [
-    { id: 1, title: 'Senior Infrastructure Engineer', tags: ['Docker', 'Go'], salary: '$160k', location: 'Remote' },
-    { id: 2, title: 'Staff Full-Stack Architect', tags: ['React', 'Postgres'], salary: '$185k', location: 'Hybrid' }
-  ];
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      {/* Top Search Interface Row */}
-      <div style={{ display: 'flex', gap: '1rem', backgroundColor: '#18181b', padding: '1.5rem', borderRadius: '6px', border: '1px solid #27272a' }}>
-        <input 
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={tenant ? `Search open positions at ${tenant}...` : "Search across global multi-tenant index..."}
-          style={{
-            flex: 1, padding: '0.75rem 1rem', backgroundColor: '#09090b', color: '#fafafa',
-            border: '1px solid #3f3f46', borderRadius: '4px', fontFamily: 'monospace'
-          }}
-        />
-        <button style={{ backgroundColor: '#a855f7', color: '#fafafa', border: 'none', padding: '0 1.5rem', borderRadius: '4px', fontFamily: 'monospace', cursor: 'pointer' }}>
-          QUERY
-        </button>
+    <div style={styles.container}>
+      <div style={styles.headerRow}>
+        <div>
+          <h1 style={styles.title}>// ACTIVE_DEPLOYMENTS</h1>
+          <p style={styles.subtitle}>Execute queries against the indexed job matrix.</p>
+        </div>
+        <button style={styles.createBtn}>+ INJECT_NEW_JOB</button>
       </div>
 
-      {/* Split Workstation: Sidebar Filters + Card Streams */}
-      <div style={{ display: 'flex', gap: '2rem' }}>
-        {/* Sidebar Filters */}
-        <aside style={{ width: '250px', backgroundColor: '#18181b', border: '1px solid #27272a', padding: '1.5rem', borderRadius: '6px', height: 'fit-content' }}>
-          <h4 style={{ margin: '0 0 1rem 0', fontFamily: 'monospace', color: '#fafafa' }}>// ENG_FILTERS</h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontFamily: 'monospace', fontSize: '0.85rem', color: '#a1a1aa' }}>
-            <div>⏱️ commit_type: Remote (2)</div>
-            <div>💰 min_compensation: $100k+</div>
-          </div>
-        </aside>
+      {/* TERMINAL SEARCH BAR */}
+      <div style={styles.searchConsole}>
+        <span style={styles.prompt}>{'>'} grep --search</span>
+        <input 
+          type="text" 
+          placeholder='"Software Engineer"'
+          style={styles.searchInput}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
 
-        {/* Results Container Stream */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {mockJobs.map((job) => (
-            <div key={job.id} style={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '6px', padding: '1.5rem' }}>
-              <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#06b6d4', marginBottom: '0.5rem' }}>
-                ⟩ {tenant || 'global_root'}.corehire.app
-              </div>
-              <h3 style={{ margin: '0 0 0.75rem 0', color: '#fafafa' }}>{job.title}</h3>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <span style={{ backgroundColor: '#27272a', color: '#fafafa', fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderRadius: '4px', fontFamily: 'monospace' }}>
-                  {job.salary}
-                </span>
-                <span style={{ backgroundColor: '#27272a', color: '#a855f7', fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderRadius: '4px', fontFamily: 'monospace' }}>
-                  {job.location}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* DATA GRID */}
+      <div style={styles.grid}>
+        {jobs.length === 0 ? (
+          <div style={styles.emptyState}>
+            <p>[ NO_DATA_FOUND: 0 EXECUTING DEPLOYMENTS ]</p>
+            <p style={{ color: '#565f89', fontSize: '0.85rem', marginTop: '8px' }}>
+              Awaiting data injection from recruiter...
+            </p>
+          </div>
+        ) : (
+          // Job Cards will map here in the next step
+          <div>Data loaded...</div>
+        )}
       </div>
     </div>
   );
 }
+
+// --- OPENCLAW STYLING DICTIONARY ---
+const styles = {
+  container: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+  },
+  headerRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '32px',
+  },
+  title: {
+    color: '#fff',
+    fontSize: '1.5rem',
+    margin: '0 0 8px 0',
+    fontWeight: 'normal',
+  },
+  subtitle: {
+    color: '#565f89',
+    fontSize: '0.9rem',
+    margin: 0,
+  },
+  createBtn: {
+    backgroundColor: 'transparent',
+    border: '1px solid #00ff41',
+    color: '#00ff41',
+    padding: '10px 20px',
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
+    transition: 'all 0.2s',
+  },
+  searchConsole: {
+    backgroundColor: '#0a0a0f',
+    border: '1px solid #1a1b26',
+    padding: '16px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    marginBottom: '32px',
+  },
+  prompt: {
+    color: '#ff007c',
+    fontWeight: 'bold',
+  },
+  searchInput: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: '#7aa2f7',
+    fontFamily: 'inherit',
+    fontSize: '1rem',
+    outline: 'none',
+  },
+  grid: {
+    border: '1px dashed #1a1b26',
+    minHeight: '400px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10, 10, 15, 0.5)',
+  },
+  emptyState: {
+    textAlign: 'center',
+    color: '#ff9e64', // Warning Orange
+  }
+};

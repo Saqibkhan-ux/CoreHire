@@ -1,62 +1,149 @@
-import React from 'react';
-import { Outlet, Navigate, Link } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 
 export default function DashboardLayout() {
-  const { user, isAuthenticated } = useAuth();
-  const { tenant } = useTenant();
+  const { user, logout } = useAuth();
+  const { tenantName } = useTenant();
+  const navigate = useNavigate();
 
-  // Security Intercept Loop: Verify structural access levels instantly
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (user?.role !== 'RECRUITER') {
-    return <Navigate to="/" replace />;
-  }
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#09090b', color: '#fafafa' }}>
-      {/* Cyberpunk Workspace Sidebar Panel */}
-      <aside style={{ 
-        width: '260px', 
-        backgroundColor: '#09090b', 
-        borderRight: '1px solid #27272a', 
-        padding: '2rem 1.5rem',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between'
-      }}>
-        <div>
-          <div style={{ fontWeight: '700', fontFamily: 'monospace', color: '#a855f7', marginBottom: '0.25rem' }}>
-            ⚙️ CORE_CONSOLE
-          </div>
-          <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#a1a1aa', marginBottom: '2.5rem' }}>
-            scope: {tenant || 'global_root'}
-          </div>
-          
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', fontFamily: 'monospace', fontSize: '0.9rem' }}>
-            <Link to="/dashboard" style={{ color: '#06b6d4', textDecoration: 'none' }}>📁 active_listings</Link>
-            <span style={{ color: '#a1a1aa', cursor: 'not-allowed' }}>📥 applications (0)</span>
-            <span style={{ color: '#a1a1aa', cursor: 'not-allowed' }}>➕ post_new_job</span>
-          </nav>
+    <div style={styles.layout}>
+      {/* SIDEBAR CONSOLE */}
+      <aside style={styles.sidebar}>
+        <div style={styles.header}>
+          <h2 style={styles.tenantName}>{tenantName}_CONSOLE</h2>
+          <p style={styles.authBadge}>[AUTH: {user?.role}]</p>
         </div>
 
-        {/* Bottom Utility Profile Section */}
-        <div style={{ borderTop: '1px solid #27272a', paddingTop: '1rem', fontFamily: 'monospace', fontSize: '0.8rem' }}>
-          <div style={{ color: '#fafafa', textOverflow: 'ellipsis', overflow: 'hidden' }}>{user.email}</div>
-          <Link to="/" style={{ color: '#ef4444', textDecoration: 'none', display: 'block', marginTop: '0.5rem' }}>
-            ⟵ exit_console
-          </Link>
+        <nav style={styles.nav}>
+          <button style={styles.navButton} className="active">
+            {'>'} ACTIVE_DEPLOYMENTS
+          </button>
+          <button style={styles.navButton}>
+            {'>'} CANDIDATE_LOGS
+          </button>
+          <button style={styles.navButton}>
+            {'>'} SYS_SETTINGS
+          </button>
+        </nav>
+
+        <div style={styles.footer}>
+          <p style={styles.userEmail}>{user?.email}</p>
+          <button onClick={handleLogout} style={styles.logoutBtn}>
+            [ TERMINATE_SESSION ]
+          </button>
         </div>
       </aside>
-      
-      {/* Primary Management View Workstation */}
-      <main style={{ flex: 1, padding: '3rem', backgroundColor: '#09090b', overflowY: 'auto' }}>
-        {/* Child features (like RecruiterConsole) inject their UI states cleanly here */}
-        <Outlet />
+
+      {/* MAIN DATA GRID PORT */}
+      <main style={styles.mainContent}>
+        <div style={styles.topBar}>
+          <span style={styles.status}>STATUS: SECURE_UPLINK_ESTABLISHED</span>
+          <span style={styles.time}>{new Date().toISOString()}</span>
+        </div>
+        
+        {/* Child routes (like JobExplorer) render inside this Outlet */}
+        <div style={styles.outletWrapper}>
+          <Outlet /> 
+        </div>
       </main>
     </div>
   );
 }
+
+// --- OPENCLAW STYLING DICTIONARY ---
+const styles = {
+  layout: {
+    display: 'flex',
+    height: '100vh',
+    backgroundColor: '#050508', // Deep Void Black
+    color: '#a9b1d6',
+    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+  },
+  sidebar: {
+    width: '300px',
+    borderRight: '1px solid #1a1b26',
+    display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: '#0a0a0f',
+  },
+  header: {
+    padding: '24px',
+    borderBottom: '1px solid #1a1b26',
+  },
+  tenantName: {
+    color: '#00ff41', // Terminal Green
+    fontSize: '1.2rem',
+    margin: '0 0 8px 0',
+    textTransform: 'uppercase',
+    letterSpacing: '2px',
+  },
+  authBadge: {
+    color: '#ff007c', // Neon Pink
+    fontSize: '0.8rem',
+    margin: 0,
+  },
+  nav: {
+    flex: 1,
+    padding: '24px 0',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  navButton: {
+    background: 'none',
+    border: 'none',
+    color: '#7aa2f7', // Cyber Blue
+    textAlign: 'left',
+    padding: '12px 24px',
+    fontFamily: 'inherit',
+    fontSize: '0.9rem',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  },
+  footer: {
+    padding: '24px',
+    borderTop: '1px solid #1a1b26',
+  },
+  userEmail: {
+    fontSize: '0.8rem',
+    color: '#565f89',
+    marginBottom: '16px',
+  },
+  logoutBtn: {
+    background: 'none',
+    border: '1px solid #ff003c',
+    color: '#ff003c',
+    padding: '8px 16px',
+    fontFamily: 'inherit',
+    fontSize: '0.8rem',
+    cursor: 'pointer',
+    width: '100%',
+  },
+  mainContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  topBar: {
+    height: '40px',
+    borderBottom: '1px solid #1a1b26',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '0 24px',
+    fontSize: '0.75rem',
+    color: '#565f89',
+  },
+  outletWrapper: {
+    flex: 1,
+    padding: '32px',
+    overflowY: 'auto',
+  }
+};

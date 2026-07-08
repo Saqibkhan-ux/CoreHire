@@ -1,6 +1,6 @@
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://postgres:password123@localhost:5432/my_job_board?schema=public"
+  
 }
 
 generator client {
@@ -23,6 +23,7 @@ model Tenant {
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
+  name      String?
   password  String
   role      String   // "ADMIN", "RECRUITER", "CANDIDATE"
   tenantId  String?  // Nullable if they are independent global job seekers
@@ -38,7 +39,8 @@ model Job {
   title       String
   description String
   location    String
-  salary      Int?
+  salaryMin   Int?
+  salaryMax   Int?
   tags        String[]
   createdAt   DateTime @default(now())
   

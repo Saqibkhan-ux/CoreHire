@@ -19,17 +19,24 @@ export default function AuthPage() {
     try {
       // Ingest input fields directly into the context state wrapper loop
       const result = await login(email, password);
-      if (result.success) {
+      
+      if (result?.success) {
         setStatusText('ACCESS_GRANTED // REDIRECTING');
         if (result.role === 'RECRUITER') {
           navigate('/dashboard');
         } else {
           navigate('/');
         }
+      } else {
+        // Login failed - result.success is false
+        setStatusText('STREAM_TERMINATED_WITH_ERRORS');
+        setError(result?.error || 'Authentication failed. Please check your credentials.');
+        console.error('[AuthPage] Login failed:', result?.error);
       }
     } catch (err) {
       setError(err.message || 'GATEWAY_REJECTION: Invalid credentials.');
       setStatusText('STREAM_TERMINATED_WITH_ERRORS');
+      console.error('[AuthPage] Login error:', err);
     }
   };
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import RecruiterConsole from './features/jobs/components/RecruiterConsole';
 
 // Layout Canvas Ingress Wrappers
 import PublicLayout from './routes/PublicLayout';
@@ -9,15 +10,8 @@ import DashboardLayout from './routes/DashboardLayout';
 import JobExplorer from './features/jobs/components/JobExplorer';
 import AuthPage from './features/auth/AuthPage';
 
-// Simple placeholder left for internal panel until we construct dashboard sub-components
-const RecruiterConsole = () => (
-  <div style={{ border: '1px dashed #27272a', padding: '2rem', borderRadius: '6px', backgroundColor: '#18181b' }}>
-    <h3 style={{ margin: '0 0 0.5rem 0', fontFamily: 'monospace' }}>📊 Core Workspace Active Console</h3>
-    <p style={{ color: '#a1a1aa', fontSize: '0.95rem', margin: 0 }}>
-      Authorization layer verified. Operational logs synced.
-    </p>
-  </div>
-);
+
+
 
 export default function App() {
   return (
