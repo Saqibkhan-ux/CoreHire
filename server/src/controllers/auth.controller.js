@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/prisma.js'; 
+import { JobService } from '../services/job.service.js';
 
 export const login = async (req, res) => {
   try {
@@ -22,14 +23,15 @@ export const login = async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // 3. Mint the JSON Web Token (JWT) with the required multi-tenant payload
+// 3. Mint the JSON Web Token (JWT) with the required multi-tenant payload
     const token = jwt.sign(
       { 
-        userId: user.id, 
+        id: user.id,           // Add this!
+        userId: user.id,       // Keep this for backwards compatibility
         tenantId: user.tenantId, 
         role: user.role 
       },
-      process.env.JWT_SECRET || 'corehire_super_secret_cyber_key_2026', // Bulletproof fallback
+      process.env.JWT_SECRET || 'corehire_super_secret_cyber_key_2026',
       { expiresIn: '24h' }
     );
 
