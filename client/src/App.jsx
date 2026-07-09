@@ -10,9 +10,6 @@ import DashboardLayout from './routes/DashboardLayout';
 import JobExplorer from './features/jobs/components/JobExplorer';
 import AuthPage from './features/auth/AuthPage';
 
-
-
-
 export default function App() {
   return (
     <Routes>
@@ -25,7 +22,11 @@ export default function App() {
 
       {/* Private Workspace Recruiter Console (Protected Access) */}
       <Route path="/dashboard" element={<DashboardLayout />}>
+        {/* Default route when clicking Dashboard */}
         <Route index element={<RecruiterConsole />} />
+        
+        {/* ADDED: This connects your Sidebar Link to the Terminal UI! */}
+        <Route path="jobs" element={<JobExplorer />} />
       </Route>
 
       {/* Fallback Catch-All Route */}

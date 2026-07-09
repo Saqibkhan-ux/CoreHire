@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 
@@ -22,15 +22,16 @@ export default function DashboardLayout() {
         </div>
 
         <nav style={styles.nav}>
-          <button style={styles.navButton} className="active">
+          {/* WE REPLACED THE BUTTONS WITH ROUTER LINKS */}
+          <Link to="/dashboard/jobs" style={styles.navButton}>
             {'>'} ACTIVE_DEPLOYMENTS
-          </button>
-          <button style={styles.navButton}>
+          </Link>
+          <Link to="/dashboard/candidates" style={styles.navButton}>
             {'>'} CANDIDATE_LOGS
-          </button>
-          <button style={styles.navButton}>
+          </Link>
+          <Link to="/dashboard/settings" style={styles.navButton}>
             {'>'} SYS_SETTINGS
-          </button>
+          </Link>
         </nav>
 
         <div style={styles.footer}>
@@ -62,7 +63,7 @@ const styles = {
   layout: {
     display: 'flex',
     height: '100vh',
-    backgroundColor: '#050508', // Deep Void Black
+    backgroundColor: '#050508', 
     color: '#a9b1d6',
     fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
   },
@@ -71,21 +72,21 @@ const styles = {
     borderRight: '1px solid #1a1b26',
     display: 'flex',
     flexDirection: 'column',
-    backgroundColor: '#0a0a0f',
+    backgroundColor: '#000000',
   },
   header: {
     padding: '24px',
     borderBottom: '1px solid #1a1b26',
   },
   tenantName: {
-    color: '#00ff41', // Terminal Green
+    color: '#00ff41', 
     fontSize: '1.2rem',
     margin: '0 0 8px 0',
     textTransform: 'uppercase',
     letterSpacing: '2px',
   },
   authBadge: {
-    color: '#ff007c', // Neon Pink
+    color: '#ff007c', 
     fontSize: '0.8rem',
     margin: 0,
   },
@@ -97,9 +98,11 @@ const styles = {
     gap: '8px',
   },
   navButton: {
+    display: 'block',          // Added so the Link behaves like a button
+    textDecoration: 'none',    // Removes the default blue underline from Links
     background: 'none',
     border: 'none',
-    color: '#7aa2f7', // Cyber Blue
+    color: '#7aa2f7', 
     textAlign: 'left',
     padding: '12px 24px',
     fontFamily: 'inherit',
