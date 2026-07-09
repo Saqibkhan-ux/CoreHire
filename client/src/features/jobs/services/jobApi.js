@@ -44,5 +44,14 @@ export const jobApi = {
       }
     });
     return response.data;
+  },
+
+  updateJob: async (jobId, jobData, token) => {
+    const response = await jobClient.put(`/${jobId}`, jobData, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return response.data;
   }
 };
