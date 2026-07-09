@@ -95,6 +95,53 @@ export const JobService = {
   },
 
   /**
+   * Update an existing job while keeping tenant isolation.
+   */
+  async updateJob(jobId, jobData, tenantId) {
+    // Confirm the job belongs to the current tenant
+    const existingJob = await prisma.job.findFirst({ where: { id: jobId, tenantId } });
+    if (!existingJob) {
+      throw new Error('Job not found or access denied.');
+    }
+
+    const updatedJob = await prisma.job.update({
+      where: { id: jobId },
+      data: {
+        title: jobData.title ?? existingJob.title,
+        description: jobData.description ?? existingJob.description,
+        location: jobData.location ?? existingJob.location,
+        salaryMin: jobData.salaryMin != null ? parseInt(jobData.salaryMin, 10) : existingJob.salaryMin,
+        salaryMax: jobData.salaryMax != null ? parseInt(jobData.salaryMax, 10) : existingJob.salaryMax,
+        tags: jobData.tags ?? existingJob.tags
+      }
+    });
+
+    try {
+      await esClient.index({
+        index: JOB_INDEX,
+        id: updatedJob.id,
+        document: {
+          id: updatedJob.id,
+          tenantId: updatedJob.tenantId,
+          title: updatedJob.title,
+          description: updatedJob.description,
+          location: updatedJob.location,
+          salaryMin: updatedJob.salaryMin,
+          salaryMax: updatedJob.salaryMax,
+          tags: updatedJob.tags,
+          createdAt: updatedJob.createdAt
+        },
+        refresh: 'wait_for'
+      });
+      console.log(`[Dual-Write] Job ${updatedJob.id} re-indexed into Elasticsearch after update.`);
+    } catch (esError) {
+      console.error(`[Dual-Write Warning] Postgres update succeeded, but ES indexing failed for Job ${updatedJob.id}:`, esError.message);
+    }
+
+    return updatedJob;
+  },
+
+  /**
    * Fast Read Path: Queries Elasticsearch strictly filtered by tenantId.
    */
   async searchJobs({ query = '', location, minSalary, tenantId }) {
