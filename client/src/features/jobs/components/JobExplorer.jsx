@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 export default function JobExplorer() {
@@ -18,16 +18,34 @@ export default function JobExplorer() {
   const [editForm, setEditForm] = useState({ title: '', salary: '', location: '', description: '' });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
+  // --- 1. THE COMMAND LOG STATE ---
+  const [logs, setLogs] = useState([
+    { id: 1, text: 'corehire_os v1.0.4 initialized.', type: 'system' },
+    { id: 2, text: 'Connected to primary database cluster.', type: 'system' },
+    { id: 3, text: 'Awaiting recruiter input...', type: 'info' }
+  ]);
+  const logEndRef = useRef(null);
+
+  // Helper to push new logs to the terminal UI
+  const printLog = (text, type = 'info') => {
+    setLogs(prev => [...prev, { id: Date.now() + Math.random(), text, type }]);
+  };
+
+  // Auto-scroll to the newest log
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [logs]);
+
   // --- INITIAL LOAD ---
   useEffect(() => {
     fetchDeployments();
   }, []);
 
-  // Helper to attach the cryptographic token to every request
   const getAuthConfig = () => {
     const token = localStorage.getItem('token') || localStorage.getItem('corehire_jwt');
-    return {
-      headers: { Authorization: `Bearer ${token}` }
+    return { 
+      headers: { Authorization: `Bearer ${token}` },
+      withCredentials: true // Synchronize with AuthContext's login method for CORS
     };
   };
 
@@ -46,18 +64,23 @@ export default function JobExplorer() {
   // --- GET: FETCH / SEARCH JOBS (ELASTICSEARCH) ---
   const fetchDeployments = async (query = '') => {
     setIsSearching(true);
+    
+    if (query) {
+      printLog(`> grep --search "${query}"`, 'command');
+      printLog('Executing sub-millisecond Elasticsearch query...', 'info');
+    }
+
     try {
       const config = getAuthConfig();
-      // If a query exists, pass it as a URL parameter to hit the Elasticsearch filter
-      if (query) {
-        config.params = { search: query };
-      }
+      if (query) config.params = { query: query };
 
-      const response = await axios.get('http://127.0.0.1:3000/api/jobs', config);
-      // Ensure we map the response correctly based on your backend structure
+      const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/jobs`, config);
       setJobs(response.data.data || response.data || []);
+      
+      if (query) printLog(`✅ Status 200: Search engine returned results.`, 'success');
+      
     } catch (error) {
-      console.error('FETCH_ERROR:', error);
+      printLog(`❌ FETCH_ERROR: ${error.message}`, 'error');
     } finally {
       setIsSearching(false);
     }
@@ -85,21 +108,23 @@ export default function JobExplorer() {
 
   const handleEditSave = async () => {
     if (!editForm.title || !editForm.salary || !editForm.location || !editForm.description) {
-      alert('SYSTEM_WARNING: All fields are required to save an edit.');
+      printLog('❌ SYSTEM_WARNING: All fields are required to save an edit.', 'error');
       return;
     }
 
+    printLog(`> Executing PUT update on Job ID: ${editingJobId.substring(0,8)}...`, 'command');
     setIsSavingEdit(true);
+    
     try {
       const config = getAuthConfig();
       if (!config.headers.Authorization.includes('Bearer ey')) {
-        alert('ACCESS_DENIED: No valid local token found. Are you logged in?');
+        printLog('❌ ACCESS_DENIED: No valid JWT found.', 'error');
         setIsSavingEdit(false);
         return;
       }
 
       const normalizedSalary = normalizeSalaryInput(editForm.salary);
-      await axios.put(`http://127.0.0.1:3000/api/jobs/${editingJobId}`, {
+      await axios.put(`${import.meta.env.VITE_API_BASE_URL}/api/jobs/${editingJobId}`, {
         title: editForm.title,
         description: editForm.description,
         location: editForm.location,
@@ -107,11 +132,11 @@ export default function JobExplorer() {
         salaryMax: normalizedSalary
       }, config);
 
+      printLog('✅ Status 200: Job deployment successfully updated.', 'success');
       cancelEditing();
       await fetchDeployments();
     } catch (error) {
-      console.error('EDIT_SAVE_FAILED:', error);
-      alert('EDIT_FAILED: ' + (error.response?.data?.error || 'Unknown Error'));
+      printLog(`❌ EDIT_FAILED: ${error.response?.data?.error || error.message}`, 'error');
     } finally {
       setIsSavingEdit(false);
     }
@@ -122,22 +147,24 @@ export default function JobExplorer() {
     e.preventDefault();
     
     if (!jobForm.title || !jobForm.salary || !jobForm.location || !jobForm.description) {
-      alert("SYSTEM_WARNING: All payload fields must be populated.");
+      printLog("❌ SYSTEM_WARNING: All payload fields must be populated.", "error");
       return;
     }
 
+    printLog('> Executing [POSTGRES_UPLINK] payload...', 'command');
+    printLog('Authenticating JWT Gatekeeper...', 'info');
     setIsInjecting(true);
+    
     try {
       const config = getAuthConfig();
       if (!config.headers.Authorization.includes('Bearer ey')) {
-        alert("ACCESS_DENIED: No valid local token found. Are you logged in?");
+        printLog("❌ ACCESS_DENIED: No valid JWT found.", "error");
         setIsInjecting(false);
         return; 
       }
 
-      // Execute Dual-Write using the dynamic form state
       const normalizedSalary = normalizeSalaryInput(jobForm.salary);
-      await axios.post('http://127.0.0.1:3000/api/jobs', {
+      await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/jobs`, {
         title: jobForm.title,
         description: jobForm.description,
         location: jobForm.location,
@@ -145,13 +172,13 @@ export default function JobExplorer() {
         salaryMax: normalizedSalary
       }, config);
       
-      // Clear the form and refresh the grid immediately
+      printLog('✅ Status 201: Dual-Write Complete. Payload Injected.', 'success');
+      
       setJobForm({ title: '', salary: '', location: '', description: '' });
       await fetchDeployments();
 
     } catch (error) {
-      console.error('INJECTION_FAILED:', error);
-      alert('ACCESS_DENIED: ' + (error.response?.data?.error || 'Unknown Error'));
+      printLog(`❌ DATABASE_CRASH: ${error.response?.data?.error || error.message}`, 'error');
     } finally {
       setIsInjecting(false);
     }
@@ -169,39 +196,11 @@ export default function JobExplorer() {
       {/* MODULE A: DUAL-WRITE INJECTION PANEL */}
       <form onSubmit={handleInjectJob} style={styles.injectionConsole}>
         <span style={styles.prompt}>[POSTGRES_UPLINK]</span>
-        <input 
-          type="text" 
-          placeholder="Job Title"
-          style={styles.formInput}
-          value={jobForm.title}
-          onChange={(e) => setJobForm({...jobForm, title: e.target.value})}
-        />
-        <input 
-          type="text" 
-          placeholder="Compensation"
-          style={styles.formInput}
-          value={jobForm.salary}
-          onChange={(e) => setJobForm({...jobForm, salary: e.target.value})}
-        />
-        <input 
-          type="text" 
-          placeholder="Job Location"
-          style={styles.formInput}
-          value={jobForm.location}
-          onChange={(e) => setJobForm({...jobForm, location: e.target.value})}
-        />
-        <input 
-          type="text" 
-          placeholder="Job Description"
-          style={styles.formInput}
-          value={jobForm.description}
-          onChange={(e) => setJobForm({...jobForm, description: e.target.value})}
-        />
-        <button 
-          type="submit"
-          style={styles.createBtn} 
-          disabled={isInjecting}
-        >
+        <input type="text" placeholder="Job Title" style={styles.formInput} value={jobForm.title} onChange={(e) => setJobForm({...jobForm, title: e.target.value})} />
+        <input type="text" placeholder="Compensation" style={styles.formInput} value={jobForm.salary} onChange={(e) => setJobForm({...jobForm, salary: e.target.value})} />
+        <input type="text" placeholder="Job Location" style={styles.formInput} value={jobForm.location} onChange={(e) => setJobForm({...jobForm, location: e.target.value})} />
+        <input type="text" placeholder="Job Description" style={styles.formInput} value={jobForm.description} onChange={(e) => setJobForm({...jobForm, description: e.target.value})} />
+        <button type="submit" style={styles.createBtn} disabled={isInjecting}>
           {isInjecting ? '[ INJECTING... ]' : '+ INJECT_DATA'}
         </button>
       </form>
@@ -209,13 +208,7 @@ export default function JobExplorer() {
       {/* MODULE B: ELASTICSEARCH TERMINAL BAR */}
       <form onSubmit={handleSearch} style={styles.searchConsole}>
         <span style={styles.prompt}>{'>'} grep --search</span>
-        <input 
-          type="text" 
-          placeholder='"Software Engineer"'
-          style={styles.searchInput}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+        <input type="text" placeholder='"Software Engineer"' style={styles.searchInput} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         <button type="submit" style={styles.searchBtn} disabled={isSearching}>
           {isSearching ? 'SCANNING...' : 'EXECUTE'}
         </button>
@@ -244,59 +237,22 @@ export default function JobExplorer() {
               <div style={styles.cardFooter}>
                 <span style={styles.statusBadge}>STATUS: ACTIVE</span>
                 <div style={styles.editActions}>
-                  <button
-                    style={styles.editBtn}
-                    onClick={() => startEditingJob(job)}
-                  >
-                    EDIT
-                  </button>
+                  <button style={styles.editBtn} onClick={() => startEditingJob(job)}>EDIT</button>
                 </div>
               </div>
+              
+              {/* EDIT PANEL EXPANSION */}
               {editingJobId === job.id && (
                 <div style={styles.editPanel}>
-                  <input
-                    type="text"
-                    placeholder="Job Title"
-                    value={editForm.title}
-                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                    style={styles.formInput}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Compensation"
-                    value={editForm.salary}
-                    onChange={(e) => setEditForm({ ...editForm, salary: e.target.value })}
-                    style={styles.formInput}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Job Location"
-                    value={editForm.location}
-                    onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                    style={styles.formInput}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Job Description"
-                    value={editForm.description}
-                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                    style={styles.formInput}
-                  />
+                  <input type="text" placeholder="Job Title" value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} style={styles.formInput} />
+                  <input type="text" placeholder="Compensation" value={editForm.salary} onChange={(e) => setEditForm({ ...editForm, salary: e.target.value })} style={styles.formInput} />
+                  <input type="text" placeholder="Job Location" value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} style={styles.formInput} />
+                  <input type="text" placeholder="Job Description" value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} style={styles.formInput} />
                   <div style={styles.editPanelActions}>
-                    <button
-                      style={styles.saveBtn}
-                      onClick={handleEditSave}
-                      disabled={isSavingEdit}
-                    >
+                    <button style={styles.saveBtn} onClick={handleEditSave} disabled={isSavingEdit}>
                       {isSavingEdit ? 'SAVING...' : 'SAVE'}
                     </button>
-                    <button
-                      style={styles.cancelBtn}
-                      onClick={cancelEditing}
-                      disabled={isSavingEdit}
-                    >
-                      CANCEL
-                    </button>
+                    <button style={styles.cancelBtn} onClick={cancelEditing} disabled={isSavingEdit}>CANCEL</button>
                   </div>
                 </div>
               )}
@@ -304,6 +260,23 @@ export default function JobExplorer() {
           ))
         )}
       </div>
+
+      {/* 2. MODULE D: THE NEW COMMAND LOG TERMINAL */}
+      <div style={styles.terminalBox}>
+        {logs.map((log) => (
+          <div key={log.id} style={{ 
+            color: log.type === 'command' ? '#ffffff' : 
+                   log.type === 'success' ? '#00ffcc' : 
+                   log.type === 'error' ? '#ff3333' : '#888888',
+            fontSize: '13px',
+            lineHeight: '1.5'
+          }}>
+            {log.text}
+          </div>
+        ))}
+        <div ref={logEndRef} /> {/* Auto-scroll target */}
+      </div>
+
     </div>
   );
 }
@@ -322,79 +295,88 @@ const styles = {
     marginBottom: '24px',
   },
   title: {
-    color: '#fff',
-    fontSize: '1.5rem',
+    color: 'var(--accent-dark)',
+    fontSize: '1.75rem',
     margin: '0 0 8px 0',
-    fontWeight: 'normal',
+    fontWeight: '700',
   },
   subtitle: {
-    color: '#565f89',
-    fontSize: '0.9rem',
+    color: 'var(--text-muted)',
+    fontSize: '1rem',
     margin: 0,
   },
   injectionConsole: {
-    backgroundColor: '#050508',
-    border: '1px solid #1a1b26',
-    borderLeft: '4px solid #00ff41',
-    padding: '16px',
+    backgroundColor: 'var(--bg-surface)',
+    border: '1px solid var(--border-subtle)',
+    borderLeft: '4px solid var(--accent-green)',
+    padding: '24px',
     display: 'flex',
     alignItems: 'center',
     gap: '16px',
-    marginBottom: '16px',
-    flexWrap: 'wrap'
+    marginBottom: '24px',
+    flexWrap: 'wrap',
+    borderRadius: '18px',
+    boxShadow: '0 18px 55px rgba(22, 43, 23, 0.08)'
   },
   formInput: {
     flex: 1,
     minWidth: '150px',
-    backgroundColor: 'transparent',
-    border: 'none',
-    borderBottom: '1px solid #1a1b26',
-    color: '#a9b1d6',
+    backgroundColor: '#f8fbf4',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: '10px',
+    color: 'var(--text-primary)',
     fontFamily: 'inherit',
-    fontSize: '0.9rem',
+    fontSize: '0.95rem',
     outline: 'none',
-    padding: '8px 4px'
+    padding: '12px 14px'
   },
   createBtn: {
-    backgroundColor: 'rgba(0, 255, 65, 0.1)',
-    border: '1px solid #00ff41',
-    color: '#00ff41',
-    padding: '8px 16px',
+    backgroundColor: 'var(--accent-green)',
+    border: 'none',
+    color: '#ffffff',
+    padding: '12px 20px',
     fontFamily: 'inherit',
     cursor: 'pointer',
     textTransform: 'uppercase',
     letterSpacing: '1px',
     transition: 'all 0.2s',
+    borderRadius: '12px',
+    boxShadow: '0 10px 25px rgba(31, 185, 112, 0.18)'
   },
   searchConsole: {
-    backgroundColor: '#0a0a0f',
-    border: '1px solid #1a1b26',
-    padding: '16px',
+    backgroundColor: 'var(--bg-surface)',
+    border: '1px solid var(--border-subtle)',
+    padding: '20px',
     display: 'flex',
     alignItems: 'center',
     gap: '16px',
     marginBottom: '32px',
+    borderRadius: '18px',
+    boxShadow: '0 10px 30px rgba(22, 43, 23, 0.06)'
   },
   prompt: {
-    color: '#ff007c',
+    color: 'var(--accent-dark)',
     fontWeight: 'bold',
   },
   searchInput: {
     flex: 1,
-    backgroundColor: 'transparent',
-    border: 'none',
-    color: '#7aa2f7',
+    backgroundColor: '#f8fbf4',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: '10px',
+    color: 'var(--text-primary)',
     fontFamily: 'inherit',
     fontSize: '1rem',
     outline: 'none',
+    padding: '12px 14px'
   },
   searchBtn: {
-    backgroundColor: 'transparent',
-    border: '1px dashed #7aa2f7',
-    color: '#7aa2f7',
-    padding: '6px 12px',
+    backgroundColor: 'var(--accent-dark)',
+    border: 'none',
+    color: '#ffffff',
+    padding: '10px 18px',
     fontFamily: 'inherit',
     cursor: 'pointer',
+    borderRadius: '12px',
   },
   editActions: {
     marginTop: '10px',
@@ -403,20 +385,22 @@ const styles = {
     gap: '8px'
   },
   editBtn: {
-    backgroundColor: '#1d4ed8',
-    color: '#fff',
+    backgroundColor: 'var(--accent-green)',
+    color: '#ffffff',
     border: 'none',
-    padding: '6px 10px',
+    padding: '8px 12px',
     cursor: 'pointer',
     fontFamily: 'inherit',
+    borderRadius: '10px',
   },
   editPanel: {
     marginTop: '16px',
-    padding: '16px',
-    backgroundColor: '#0b0b12',
-    border: '1px solid #1d1f2a',
+    padding: '20px',
+    backgroundColor: 'var(--bg-surface-alt)',
+    border: '1px solid var(--border-subtle)',
     display: 'grid',
-    gap: '12px'
+    gap: '14px',
+    borderRadius: '18px'
   },
   editPanelActions: {
     display: 'flex',
@@ -424,28 +408,31 @@ const styles = {
     marginTop: '8px'
   },
   saveBtn: {
-    backgroundColor: '#059669',
+    backgroundColor: 'var(--accent-green)',
     color: '#fff',
     border: 'none',
-    padding: '8px 14px',
+    padding: '10px 18px',
     cursor: 'pointer',
     fontFamily: 'inherit',
+    borderRadius: '10px',
   },
   cancelBtn: {
-    backgroundColor: '#7f1d1d',
-    color: '#fff',
+    backgroundColor: '#c13a3a',
+    color: '#ffffff',
     border: 'none',
-    padding: '8px 14px',
+    padding: '10px 18px',
     cursor: 'pointer',
     fontFamily: 'inherit',
+    borderRadius: '10px',
   },
   gridEmpty: {
-    border: '1px dashed #1a1b26',
+    border: '1px dashed var(--border-subtle)',
     minHeight: '400px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(10, 10, 15, 0.5)',
+    backgroundColor: 'rgba(31, 185, 112, 0.08)',
+    borderRadius: '18px'
   },
   gridPopulated: {
     display: 'grid',
@@ -454,48 +441,64 @@ const styles = {
   },
   emptyState: {
     textAlign: 'center',
-    color: '#ff9e64', 
+    color: 'var(--accent-dark)', 
   },
   jobCard: {
-    backgroundColor: '#0a0a0f',
-    border: '1px solid #1a1b26',
-    padding: '20px',
+    backgroundColor: 'var(--bg-surface)',
+    border: '1px solid var(--border-subtle)',
+    padding: '24px',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
-    borderLeft: '4px solid #7aa2f7', 
+    borderLeft: '4px solid var(--accent-green)',
+    borderRadius: '18px',
+    boxShadow: '0 20px 45px rgba(22, 43, 23, 0.05)'
   },
   cardHeader: {
     display: 'flex',
     justifyContent: 'space-between',
-    borderBottom: '1px solid #1a1b26',
+    borderBottom: '1px solid var(--border-subtle)',
     paddingBottom: '12px',
-    marginBottom: '12px',
+    marginBottom: '16px',
   },
   jobTitle: {
-    color: '#fff',
-    fontSize: '1.1rem',
+    color: 'var(--text-primary)',
+    fontSize: '1.2rem',
     margin: 0,
   },
   jobId: {
-    color: '#565f89',
-    fontSize: '0.75rem',
+    color: 'var(--text-muted)',
+    fontSize: '0.8rem',
   },
   cardBody: {
-    color: '#a9b1d6',
-    fontSize: '0.85rem',
-    lineHeight: '1.6',
-    marginBottom: '16px',
+    color: 'var(--text-muted)',
+    fontSize: '0.95rem',
+    lineHeight: '1.7',
+    marginBottom: '18px',
   },
   cardFooter: {
     display: 'flex',
     justifyContent: 'flex-end',
   },
   statusBadge: {
-    backgroundColor: 'rgba(0, 255, 65, 0.1)',
-    color: '#00ff41',
-    padding: '4px 8px',
-    fontSize: '0.7rem',
-    borderRadius: '2px',
+    backgroundColor: 'rgba(31, 185, 112, 0.14)',
+    color: 'var(--accent-dark)',
+    padding: '6px 10px',
+    fontSize: '0.75rem',
+    borderRadius: '999px',
+  },
+  // --- THE NEW TERMINAL STYLES ---
+  terminalBox: {
+    height: '200px',
+    backgroundColor: '#050508', // Deep void black
+    border: '1px solid #1a1a2e',
+    padding: '16px',
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    borderRadius: '12px',
+    marginTop: '40px', // Space between grid and terminal
+    boxShadow: 'inset 0 0 20px rgba(0,255,204,0.03)'
   }
 };

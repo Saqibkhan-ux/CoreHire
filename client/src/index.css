@@ -1,10 +1,13 @@
 :root {
-    --bg-main: #000000;
-    --bg-surface: #18181b;
-    --border-subtle: #27272a;
-    --text-primary: #fafafa;
-    --text-muted: #a1a1aa;
-    --accent-cyan: #06b6d4;
+    --bg-main: #eef7eb;
+    --bg-surface: #ffffff;
+    --bg-surface-alt: #f5f9f1;
+    --border-subtle: #d6e3d0;
+    --text-primary: #162b17;
+    --text-muted: #556d57;
+    --accent-green: #1fb970;
+    --accent-dark: #137046;
+    --accent-secondary: #80dbaa;
 }
 
 body {
