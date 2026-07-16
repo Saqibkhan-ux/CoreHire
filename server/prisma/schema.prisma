@@ -54,11 +54,13 @@ model Job {
 
 // 4. Job Applications Tracking
 model JobApplication {
-  id        String   @id @default(uuid())
-  jobId     String
-  job       Job      @relation(fields: [jobId], references: [id])
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  status    String   @default("PENDING") // "PENDING", "REVIEWING", "HIRED", "REJECTED"
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id])
+  userId      String   // The candidate applying
+  user        User     @relation(fields: [userId], references: [id])
+  resumeLink  String   // ADDED: Link to portfolio/resume
+  coverLetter String?  // ADDED: Optional cover letter text
+  status      String   @default("PENDING") // "PENDING", "REVIEWING", "HIRED", "REJECTED"
+  createdAt   DateTime @default(now())
 }

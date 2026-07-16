@@ -1,7 +1,7 @@
 import app from './app.js';
 
 // Define the port for the Express Gateway
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 // Boot up the server engine
 app.listen(PORT, () => {

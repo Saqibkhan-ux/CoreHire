@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { tenantMiddleware } from './middleware/tenant.js';
 import authRoutes from './routes/auth.routes.js';
 import jobRoutes from './routes/job.routes.js';
+import applicationRoutes from './routes/application.routes.js';
 
 dotenv.config();
 
@@ -42,6 +43,7 @@ app.get('/api/health', (req, res) => {
 // 4. API Route Mounts (We will link these next!)
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
+app.use('/api/applications', applicationRoutes);
 
 // 5. Global 404 Fallback
 app.use((req, res) => {

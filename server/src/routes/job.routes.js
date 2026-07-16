@@ -1,27 +1,27 @@
 import express from 'express';
+import multer from 'multer'; // 1. Import multer
 import { JobService } from '../services/job.service.js';
-import { requireAuth } from '../middleware/auth.middleware.js'; // <-- 1. Import the JWT Gatekeeper
-
+import { requireAuth } from '../middleware/auth.middleware.js';
+import { prisma } from '../config/prisma.js';
 
 const router = express.Router();
 
+// 2. Configure Multer (save files to the 'uploads/' directory)
+const upload = multer({ dest: 'uploads/' });
+
 /**
  * @route   GET /api/jobs
- * @desc    Fast Read Path: Queries Elasticsearch strictly scoped to the tenant.
- * @access  Public (Candidate) or Recruiter
+ * @desc    Fast Read Path
  */
 router.get('/', async (req, res) => {
   try {
     const { query, location, minSalary } = req.query;
-    
-    // req.tenantId is automatically injected by our tenantMiddleware in app.js
     const jobs = await JobService.searchJobs({
       query,
       location,
       minSalary,
       tenantId: req.tenantId
     });
-
     res.status(200).json({ status: 'success', data: jobs });
   } catch (error) {
     console.error('Job Search Execution Failed:', error);
@@ -31,17 +31,11 @@ router.get('/', async (req, res) => {
 
 /**
  * @route   POST /api/jobs
- * @desc    Write Path: Dual-Writes to PostgreSQL and Elasticsearch.
- * @access  Protected (Recruiter only)
+ * @desc    Write Path
  */
-// 👇 2. Inject `requireAuth` right here!
-console.log("DEBUG_TRACE: Checking JobService status...");
-console.log("JobService value is:", JobService);
 router.post('/', requireAuth, async (req, res) => {
   try {
     const jobData = req.body;
-
-    // 3. Security Gate: Extract the tenantId directly from the verified JWT payload
     const verifiedTenantId = req.user.tenantId;
 
     if (!verifiedTenantId) {
@@ -50,24 +44,16 @@ router.post('/', requireAuth, async (req, res) => {
       });
     }
 
-    // Execute the Dual-Write Pattern via our service
     const newJob = await JobService.createJob(jobData, verifiedTenantId);
-    
     res.status(201).json({ status: 'success', data: newJob });
   } catch (error) {
     console.error('🔴 DATABASE_CRASH_FULL_DETAILS:', error);
-    const errorMessage = error.message || JSON.stringify(error);
-    if (errorMessage.includes('description') || errorMessage.includes('required')) {
-      return res.status(400).json({ error: 'INVALID_PAYLOAD: description is required.' });
-    }
-    res.status(500).json({ error: 'CRASH: ' + errorMessage });
+    res.status(500).json({ error: 'CRASH: ' + error.message });
   }
 });
 
 /**
  * @route   PUT /api/jobs/:id
- * @desc    Update an existing job scoped to the active tenant.
- * @access  Protected (Recruiter only)
  */
 router.put('/:id', requireAuth, async (req, res) => {
   try {
@@ -81,32 +67,82 @@ router.put('/:id', requireAuth, async (req, res) => {
     const updatedJob = await JobService.updateJob(req.params.id, jobData, verifiedTenantId);
     res.status(200).json({ status: 'success', data: updatedJob });
   } catch (error) {
-    console.error('Job Update Failed:', error);
-    const errorMessage = error.message || JSON.stringify(error);
-    if (errorMessage.includes('not found') || errorMessage.includes('access denied')) {
-      return res.status(404).json({ error: 'Job not found or access denied.' });
-    }
     res.status(500).json({ error: 'Failed to update job.' });
   }
 });
 
 /**
  * @route   GET /api/jobs/:id
- * @desc    Fetches specific job details scoped to the active tenant.
- * @access  Public
  */
 router.get('/:id', async (req, res) => {
   try {
     const job = await JobService.getJobById(req.params.id, req.tenantId);
-    
-    if (!job) {
-      return res.status(404).json({ error: 'Job not found in this workspace.' });
-    }
-
+    if (!job) return res.status(404).json({ error: 'Job not found in this workspace.' });
     res.status(200).json({ status: 'success', data: job });
   } catch (error) {
-    console.error('Job Fetch Failed:', error);
     res.status(500).json({ error: 'Failed to fetch job details.' });
+  }
+});
+
+/**
+ * @route   POST /api/jobs/:jobId/apply
+ * @desc    Candidate submits application with file upload
+ * @access  Protected (Candidate)
+ */
+// 3. Inject `upload.single('resume')` middleware
+router.post('/:jobId/apply', requireAuth, upload.single('resume'), async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { coverLetter } = req.body;
+    
+    // Extract ID from the JWT decoded payload
+    const verifiedUserId = req.user.userId; 
+
+    // Safety Checks
+    if (!req.file) {
+      return res.status(400).json({ error: 'TRANSMISSION_FAILED: No resume file uploaded.' });
+    }
+    if (!verifiedUserId) {
+      return res.status(401).json({ error: 'AUTH_ERROR: Candidate identity missing from token.' });
+    }
+
+    // 1. Check if the candidate has already applied for this specific job
+    const existingApplication = await prisma.jobApplication.findFirst({
+      where: {
+        jobId: jobId,
+        userId: verifiedUserId,
+      },
+    });
+
+    // 2. If an application exists, reject the request to prevent duplicates
+    if (existingApplication) {
+      return res.status(409).json({ error: 'DUPLICATE_ENTRY: You have already applied for this position.' });
+    }
+
+    // req.file.path contains the local path to the saved file in /uploads
+    const resumePath = req.file.path;
+
+    // 3. Inject the clean payload into PostgreSQL
+    const application = await prisma.jobApplication.create({
+      data: {
+        jobId: jobId,
+        userId: verifiedUserId,
+        resume: resumePath, 
+        coverLetter: coverLetter || '',
+      },
+    });
+
+    res.status(201).json({ 
+      status: 'success', 
+      message: "✅ Application successfully injected into the matrix.", 
+      // The 'application' object is not used by the frontend and can cause serialization
+      // errors. Returning only the ID is safer and avoids potential crashes.
+      applicationId: application.id
+    });
+    
+  } catch (error) {
+    console.error("🔴 APPLICATION_CRASH:", error);
+    res.status(500).json({ error: "System failure during application submission." });
   }
 });
 
