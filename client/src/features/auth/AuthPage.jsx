@@ -1,114 +1,290 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import axios from 'axios';
 
 export default function AuthPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [statusText, setStatusText] = useState('SYSTEM_READY');
-  
-  const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth(); // Your context function to save the user session
+
+  // 1. Detect if we are on the /login or /register route
+  const [isLoginMode, setIsLoginMode] = useState(location.pathname === '/login');
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: ''
+  });
+  
+  const [status, setStatus] = useState('IDLE'); // IDLE, TRANSMITTING, SUCCESS, ERROR
+  const [sysLog, setSysLog] = useState('SYSTEM_READY // Awaiting input...');
+
+  // Update mode if the URL changes dynamically
+  useEffect(() => {
+    setIsLoginMode(location.pathname === '/login');
+    setSysLog(location.pathname === '/login' 
+      ? 'Ready for authorization credentials.' 
+      : 'Ready for new candidate registration.'
+    );
+    setStatus('IDLE');
+  }, [location.pathname]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setStatusText('EXECUTING_AUTHENTICATION_STREAM...');
+    setStatus('TRANSMITTING');
+    setSysLog('EXECUTING_PROTOCOL... establishing secure connection.');
 
-    try {
-      // Ingest input fields directly into the context state wrapper loop
-      const result = await login(email, password);
-      
-      if (result?.success) {
-        setStatusText('ACCESS_GRANTED // REDIRECTING');
-        if (result.role === 'RECRUITER') {
-          navigate('/dashboard');
+    if (isLoginMode) {
+      // --- LOGIN LOGIC ---
+      try {
+        const result = await login(formData.email, formData.password);
+
+        if (result.success) {
+          setSysLog('✅ [ACCESS_GRANTED] Handshake successful.');
+          setStatus('SUCCESS');
+
+          // Route the user based on their clearance level
+          setTimeout(() => {
+            if (result.role === 'RECRUITER') {
+              navigate('/dashboard');
+            } else {
+              navigate('/');
+            }
+          }, 1000);
         } else {
-          navigate('/');
+          // Handle login failure from context
+          setStatus('ERROR');
+          setSysLog(`🔴 [ACCESS_DENIED] ${result.error}`);
         }
-      } else {
-        // Login failed - result.success is false
-        setStatusText('STREAM_TERMINATED_WITH_ERRORS');
-        setError(result?.error || 'Authentication failed. Please check your credentials.');
-        console.error('[AuthPage] Login failed:', result?.error);
+      } catch (error) {
+        setStatus('ERROR');
+        const errorMsg = error.response?.data?.error || error.message || 'Network transmission failed.';
+        setSysLog(`🔴 [ACCESS_DENIED] ${errorMsg}`);
       }
-    } catch (err) {
-      setError(err.message || 'GATEWAY_REJECTION: Invalid credentials.');
-      setStatusText('STREAM_TERMINATED_WITH_ERRORS');
-      console.error('[AuthPage] Login error:', err);
+    } else {
+      // --- REGISTRATION LOGIC ---
+      try {
+        const payload = { ...formData, role: 'CANDIDATE' };
+        await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/auth/register`, payload);
+
+        setSysLog('✅ [REGISTRATION_SUCCESS] Identity provisioned. Please log in.');
+        setStatus('SUCCESS');
+        setTimeout(() => navigate('/login'), 1500);
+
+      } catch (error) {
+        setStatus('ERROR');
+        const errorMsg = error.response?.data?.error || 'Network transmission failed.';
+        setSysLog(`🔴 [REGISTRATION_FAILED] ${errorMsg}`);
+      }
     }
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4rem' }}>
-      <div style={{
-        backgroundColor: '#18181b',
-        border: '1px solid #27272a',
-        borderRadius: '6px',
-        padding: '2.5rem',
-        width: '100%',
-        maxWidth: '400px'
-      }}>
-        <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#a855f7', marginBottom: '1rem' }}>
-          // IDENTITY_ACCESS_PROTOCOL
+    <div style={styles.container}>
+      <div style={styles.authConsole}>
+        <div style={styles.header}>
+          <h2 style={styles.title}>
+            {isLoginMode ? '⟩ authenticate_' : '⟩ register_identity_'}
+          </h2>
+          <p style={styles.subtitle}>
+            {isLoginMode 
+              ? '// IDENTITY_ACCESS_PROTOCOL' 
+              : '// NEW_CANDIDATE_INITIALIZATION'}
+          </p>
         </div>
-        
-        <h2 style={{ fontFamily: 'monospace', color: '#fafafa', margin: '0 0 1.5rem 0' }}>⟩ authenticate_</h2>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div>
-            <label style={{ display: 'block', color: '#a1a1aa', fontFamily: 'monospace', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
-              email_address:
-            </label>
-            <input 
-              type="email" 
+        <form onSubmit={handleSubmit} style={styles.form}>
+          {/* Only show the Name field if we are Registering */}
+          {!isLoginMode && (
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>{">"} ALIAS (FULL NAME)</label>
+              <input
+                type="text"
+                required
+                style={styles.input}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g. Neo"
+                disabled={status === 'TRANSMITTING' || status === 'SUCCESS'}
+              />
+            </div>
+          )}
+
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>{">"} COMM_CHANNEL (EMAIL)</label>
+            <input
+              type="email"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="recruiter@stripe.com or user@global.com"
-              style={{
-                width: '100%', padding: '0.75rem', backgroundColor: '#09090b', color: '#fafafa',
-                border: '1px solid #3f3f46', borderRadius: '4px', boxSizing: 'border-box'
-              }}
+              style={styles.input}
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder={isLoginMode ? "recruiter@stripe.com or user@global.com" : "user@network.com"}
+              disabled={status === 'TRANSMITTING' || status === 'SUCCESS'}
             />
           </div>
 
-          <div>
-            <label style={{ display: 'block', color: '#a1a1aa', fontFamily: 'monospace', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
-              secure_cipher_pass:
-            </label>
-            <input 
-              type="password" 
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>{">"} ENCRYPTION_KEY (PASSWORD)</label>
+            <input
+              type="password"
               required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              style={styles.input}
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               placeholder="••••••••"
-              style={{
-                width: '100%', padding: '0.75rem', backgroundColor: '#09090b', color: '#fafafa',
-                border: '1px solid #3f3f46', borderRadius: '4px', boxSizing: 'border-box'
-              }}
+              disabled={status === 'TRANSMITTING' || status === 'SUCCESS'}
             />
           </div>
 
-          <button type="submit" style={{
-            backgroundColor: '#06b6d4', color: '#09090b', fontFamily: 'monospace',
-            fontWeight: 'bold', border: 'none', padding: '0.75rem', borderRadius: '4px',
-            cursor: 'pointer', marginTop: '0.5rem'
-          }}>
-            EXECUTE_SUBMIT
+          <button 
+            type="submit" 
+            style={{
+              ...styles.transmitBtn,
+              opacity: (status === 'TRANSMITTING' || status === 'SUCCESS') ? 0.5 : 1
+            }}
+            disabled={status === 'TRANSMITTING' || status === 'SUCCESS'}
+          >
+            {isLoginMode ? '[ EXECUTE_LOGIN ]' : '[ INJECT_IDENTITY ]'}
           </button>
         </form>
 
-        <hr style={{ borderColor: '#27272a', margin: '1.5rem 0' }} />
+        <div style={styles.terminalBox}>
+          <span style={{ 
+            color: status === 'ERROR' ? '#ff3366' : status === 'SUCCESS' ? '#00ffcc' : '#aaa' 
+          }}>
+            {sysLog}
+          </span>
+          <span style={styles.cursor}>_</span>
+        </div>
 
-        {/* Terminal status line metrics */}
-        <div style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-          <span style={{ color: '#a1a1aa' }}>status: </span>
-          <span style={{ color: error ? '#ef4444' : '#06b6d4' }}>{statusText}</span>
-          {error && <p style={{ color: '#ef4444', margin: '0.5rem 0 0 0' }}> {error}</p>}
+        <div style={styles.footer}>
+          {isLoginMode ? (
+            <p style={styles.switchText}>
+              No identity matrix found? <Link to="/register" style={styles.link}>[ Register Here ]</Link>
+            </p>
+          ) : (
+             <p style={styles.switchText}>
+              Already established in the matrix? <Link to="/login" style={styles.link}>[ Login Here ]</Link>
+            </p>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
+// 🎨 OpenClaw Terminal Aesthetic Dictionary
+const styles = {
+  container: {
+    minHeight: '100vh',
+    backgroundColor: '#050508', // Deep void black
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '20px',
+    fontFamily: "'JetBrains Mono', 'Fira Code', monospace" // Core terminal font
+  },
+  authConsole: {
+    backgroundColor: '#0a0a0f',
+    border: '1px solid #1a1a2e', // Modular border accent
+    padding: '40px',
+    width: '100%',
+    maxWidth: '450px',
+    borderRadius: '12px',
+    boxShadow: '0 0 30px rgba(0, 255, 204, 0.05)'
+  },
+  header: {
+    marginBottom: '30px',
+    borderBottom: '1px solid #1a1a2e',
+    paddingBottom: '20px'
+  },
+  title: {
+    color: '#00ffcc', // Neon cyan accent
+    fontSize: '1.5rem',
+    margin: '0 0 10px 0',
+    fontWeight: '700'
+  },
+  subtitle: {
+    color: '#888',
+    fontSize: '0.85rem',
+    margin: 0
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px'
+  },
+  inputGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px'
+  },
+  label: {
+    color: '#00ffcc',
+    fontSize: '0.8rem',
+    fontWeight: 'bold'
+  },
+  input: {
+    backgroundColor: '#050508',
+    border: '1px solid #333',
+    color: '#fff',
+    padding: '12px',
+    borderRadius: '8px',
+    fontFamily: 'inherit',
+    fontSize: '1rem',
+    outline: 'none',
+    transition: 'border-color 0.2s'
+  },
+  transmitBtn: {
+    backgroundColor: 'transparent',
+    border: '1px solid #00ffcc',
+    color: '#00ffcc',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    fontWeight: 'bold',
+    padding: '12px',
+    borderRadius: '8px',
+    marginTop: '10px',
+    transition: 'all 0.2s',
+    textTransform: 'uppercase'
+  },
+  terminalBox: {
+    backgroundColor: '#050508',
+    border: '1px dashed #333',
+    padding: '16px',
+    marginTop: '30px',
+    borderRadius: '8px',
+    fontSize: '0.85rem',
+    display: 'flex',
+    alignItems: 'center'
+  },
+  cursor: {
+    color: '#00ffcc',
+    animation: 'blink 1s step-end infinite', // Blinking terminal cursor
+    marginLeft: '4px'
+  },
+  footer: {
+    marginTop: '30px',
+    textAlign: 'center'
+  },
+  switchText: {
+    color: '#888',
+    fontSize: '0.9rem'
+  },
+  link: {
+    color: '#00ffcc',
+    textDecoration: 'none',
+    fontWeight: 'bold'
+  }
+};
+
+// Global style for the blinking cursor (injects automatically)
+const cursorStyle = document.createElement('style');
+cursorStyle.innerHTML = `
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+`;
+document.head.appendChild(cursorStyle);

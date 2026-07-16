@@ -14,7 +14,6 @@ export default function DashboardLayout() {
 
   return (
     <div style={styles.layout}>
-      {/* SIDEBAR CONSOLE */}
       <aside style={styles.sidebar}>
         <div style={styles.header}>
           <h2 style={styles.tenantName}>{tenantName}_CONSOLE</h2>
@@ -22,7 +21,6 @@ export default function DashboardLayout() {
         </div>
 
         <nav style={styles.nav}>
-          {/* WE REPLACED THE BUTTONS WITH ROUTER LINKS */}
           <Link to="/dashboard/jobs" style={styles.navButton}>
             {'>'} ACTIVE_DEPLOYMENTS
           </Link>
@@ -42,14 +40,11 @@ export default function DashboardLayout() {
         </div>
       </aside>
 
-      {/* MAIN DATA GRID PORT */}
       <main style={styles.mainContent}>
         <div style={styles.topBar}>
           <span style={styles.status}>STATUS: SECURE_UPLINK_ESTABLISHED</span>
           <span style={styles.time}>{new Date().toISOString()}</span>
         </div>
-        
-        {/* Child routes (like JobExplorer) render inside this Outlet */}
         <div style={styles.outletWrapper}>
           <Outlet /> 
         </div>
@@ -58,35 +53,34 @@ export default function DashboardLayout() {
   );
 }
 
-// --- OPENCLAW STYLING DICTIONARY ---
 const styles = {
   layout: {
     display: 'flex',
-    height: '100vh',
-    backgroundColor: '#050508', 
-    color: '#a9b1d6',
+    minHeight: '100vh',
+    backgroundColor: 'var(--bg-main)',
+    color: 'var(--text-primary)',
     fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
   },
   sidebar: {
     width: '300px',
-    borderRight: '1px solid #1a1b26',
+    borderRight: '1px solid var(--border-subtle)',
     display: 'flex',
     flexDirection: 'column',
-    backgroundColor: '#000000',
+    backgroundColor: 'var(--bg-surface)',
   },
   header: {
     padding: '24px',
-    borderBottom: '1px solid #1a1b26',
+    borderBottom: '1px solid var(--border-subtle)',
   },
   tenantName: {
-    color: '#00ff41', 
+    color: 'var(--accent-dark)',
     fontSize: '1.2rem',
     margin: '0 0 8px 0',
     textTransform: 'uppercase',
     letterSpacing: '2px',
   },
   authBadge: {
-    color: '#ff007c', 
+    color: 'var(--accent-green)',
     fontSize: '0.8rem',
     margin: 0,
   },
@@ -98,51 +92,54 @@ const styles = {
     gap: '8px',
   },
   navButton: {
-    display: 'block',          // Added so the Link behaves like a button
-    textDecoration: 'none',    // Removes the default blue underline from Links
-    background: 'none',
+    display: 'block',
+    textDecoration: 'none',
+    color: 'var(--text-primary)',
+    backgroundColor: 'transparent',
     border: 'none',
-    color: '#7aa2f7', 
     textAlign: 'left',
-    padding: '12px 24px',
+    padding: '14px 24px',
     fontFamily: 'inherit',
-    fontSize: '0.9rem',
+    fontSize: '0.95rem',
     cursor: 'pointer',
-    transition: 'all 0.2s',
+    borderRadius: '12px',
+    transition: 'background 0.2s ease',
   },
   footer: {
     padding: '24px',
-    borderTop: '1px solid #1a1b26',
+    borderTop: '1px solid var(--border-subtle)',
   },
   userEmail: {
     fontSize: '0.8rem',
-    color: '#565f89',
+    color: 'var(--text-muted)',
     marginBottom: '16px',
   },
   logoutBtn: {
-    background: 'none',
-    border: '1px solid #ff003c',
-    color: '#ff003c',
-    padding: '8px 16px',
+    background: 'transparent',
+    border: '1px solid var(--accent-dark)',
+    color: 'var(--accent-dark)',
+    padding: '10px 16px',
     fontFamily: 'inherit',
     fontSize: '0.8rem',
     cursor: 'pointer',
     width: '100%',
+    borderRadius: '10px',
   },
   mainContent: {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
+    backgroundColor: 'var(--bg-main)',
   },
   topBar: {
-    height: '40px',
-    borderBottom: '1px solid #1a1b26',
+    height: '48px',
+    borderBottom: '1px solid var(--border-subtle)',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: '0 24px',
-    fontSize: '0.75rem',
-    color: '#565f89',
+    fontSize: '0.8rem',
+    color: 'var(--text-muted)',
   },
   outletWrapper: {
     flex: 1,
